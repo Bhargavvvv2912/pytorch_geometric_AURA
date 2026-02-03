@@ -18,9 +18,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 🛠️ Setup Agent Deps
+      - name: 🛠️ Setup Agent & Global Torch
         run: |
           pip install google-genai google-api-core pypi-simple packaging pip-tools
+          # Pre-installing torch globally on the runner fixes the 'Bootstrap Paradox'
+          pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
 
       - name: 🧪 1. Run Pip Baseline (The Bootstrap Fix)
         run: |
@@ -44,9 +46,11 @@ jobs:
           python -m venv upgrade_env
           ./upgrade_env/bin/pip install --upgrade pip
           
-          # The "Attack": We let Pip grab the latest torch (2.6+) 
-          # but the extensions will likely still try to find 2.4-aligned binaries.
-          ./upgrade_env/bin/pip install torch torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric
+          # We force Pip to ONLY use binaries. 
+          # This will cause an immediate FAIL if a matched quartet isn't found, 
+          # which gives AURA a perfect error log to work with.
+          ./upgrade_env/bin/pip install --only-binary=:all: torch torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric
+          
           ./upgrade_env/bin/pip install -e .
           ./upgrade_env/bin/python validation_pyg.py
 
