@@ -22,19 +22,31 @@ jobs:
         run: |
           pip install google-genai google-api-core pypi-simple packaging pip-tools
 
-      - name: 🧪 1. Run Pip Baseline (Stable Quartet)
+      - name: 🧪 1. Run Pip Baseline (The Bootstrap Fix)
         run: |
           python -m venv baseline_env
+          ./baseline_env/bin/pip install --upgrade pip
+          
+          # PHASE 1: Install Torch first so extensions can see it
+          ./baseline_env/bin/pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
+          
+          # PHASE 2: Install extensions using the PyG binary index (MUCH faster)
+          ./baseline_env/bin/pip install torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+          
+          # PHASE 3: Install the rest
           ./baseline_env/bin/pip install -r requirements.txt
           ./baseline_env/bin/pip install -e .
           ./baseline_env/bin/python validation_pyg.py
 
-      - name: 💥 2. Run Pip Upgrade (Binary Attack)
+      - name: 💥 2. Run Pip Upgrade (The Binary Attack)
         continue-on-error: true
         run: |
           python -m venv upgrade_env
-          # Pip 2026 will grab the absolute latest Torch, causing ABI mismatches
-          ./upgrade_env/bin/pip install --upgrade -r primary_requirements.txt
+          ./upgrade_env/bin/pip install --upgrade pip
+          
+          # The "Attack": We let Pip grab the latest torch (2.6+) 
+          # but the extensions will likely still try to find 2.4-aligned binaries.
+          ./upgrade_env/bin/pip install torch torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric
           ./upgrade_env/bin/pip install -e .
           ./upgrade_env/bin/python validation_pyg.py
 
