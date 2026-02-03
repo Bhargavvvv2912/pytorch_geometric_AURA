@@ -2,11 +2,13 @@
 ::group::Analyzing Codebase for Update Risk
 Usage scores calculated.
 ::endgroup::
-INFO: Found pinned requirements. Running initial health check and regenerating lockfile...
+INFO: Unpinned requirements detected. Bootstrapping a new baseline...
 
-::group::Initial Baseline Health Check
+::group::BOOTSTRAP: Establishing a Stable Baseline
+Unpinned requirements detected. Creating and validating a stable baseline...
 --> Bootstrap Step 1: Installing dependencies from 'requirements.txt'...
---> Running command: '/home/runner/work/pytorch_geometric_AURA/pytorch_geometric_AURA/initial_check_venv/bin/python -m pip install --no-build-isolation --no-cache-dir -r /home/runner/work/pytorch_geometric_AURA/pytorch_geometric_AURA/requirements.txt' in CWD: '.'
+--> Running command: '/home/runner/work/pytorch_geometric_AURA/pytorch_geometric_AURA/bootstrap_venv/bin/python -m pip install --no-build-isolation --no-cache-dir -r /home/runner/work/pytorch_geometric_AURA/pytorch_geometric_AURA/requirements.txt' in CWD: '.'
+Action: Baseline broken. Activating 'Unpin and Bootstrap' repair strategy.
 ::endgroup::
 
 ::group::REPAIR MODE: stripping all version constraints
