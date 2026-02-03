@@ -1,0 +1,63 @@
+name: AURA Experiment - PyG (Repo 26)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  modernize-pyg:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🛠️ Setup Agent Deps
+        run: |
+          pip install google-genai google-api-core pypi-simple packaging pip-tools
+
+      - name: 🧪 1. Run Pip Baseline (Stable Quartet)
+        run: |
+          python -m venv baseline_env
+          ./baseline_env/bin/pip install -r requirements.txt
+          ./baseline_env/bin/pip install -e .
+          ./baseline_env/bin/python validation_pyg.py
+
+      - name: 💥 2. Run Pip Upgrade (Binary Attack)
+        continue-on-error: true
+        run: |
+          python -m venv upgrade_env
+          # Pip 2026 will grab the absolute latest Torch, causing ABI mismatches
+          ./upgrade_env/bin/pip install --upgrade -r primary_requirements.txt
+          ./upgrade_env/bin/pip install -e .
+          ./upgrade_env/bin/python validation_pyg.py
+
+      - name: 🤖 3. Run AURA Agent
+        run: |
+          python -u dependency_agent.py | tee aura_pyg_execution.log
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: 📝 Save Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-pyg-log
+          path: aura_pyg_execution.log
+
+      - name: 💾 Commit Final Results
+        if: always()
+        run: |
+          git config --global user.name 'AURA Agent'
+          git config --global user.email 'aura-agent@users.noreply.github.com'
+          git add requirements.txt aura_pyg_execution.log
+          if ! git diff --staged --quiet; then
+            git commit -m "🤖 [ASE-2026] Modernized PyG: Resolved ABI Mismatch [skip ci]"
+            git push
+          fi
