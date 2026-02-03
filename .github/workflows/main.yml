@@ -19,23 +19,18 @@ jobs:
           python-version: '3.11'
 
       - name: 🛠️ Setup Agent & Global Torch
+        # We install torch globally so that --system-site-packages can find it
         run: |
+          pip install --upgrade pip
           pip install google-genai google-api-core pypi-simple packaging pip-tools
-          # Pre-installing torch globally on the runner fixes the 'Bootstrap Paradox'
           pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
 
-      - name: 🧪 1. Run Pip Baseline (The Bootstrap Fix)
+      - name: 🧪 1. Run Pip Baseline (Hand-Held Bootstrap)
         run: |
           python -m venv baseline_env
           ./baseline_env/bin/pip install --upgrade pip
-          
-          # PHASE 1: Install Torch first so extensions can see it
           ./baseline_env/bin/pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cpu
-          
-          # PHASE 2: Install extensions using the PyG binary index (MUCH faster)
           ./baseline_env/bin/pip install torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
-          
-          # PHASE 3: Install the rest
           ./baseline_env/bin/pip install -r requirements.txt
           ./baseline_env/bin/pip install -e .
           ./baseline_env/bin/python validation_pyg.py
@@ -45,18 +40,20 @@ jobs:
         run: |
           python -m venv upgrade_env
           ./upgrade_env/bin/pip install --upgrade pip
-          
-          # We force Pip to ONLY use binaries. 
-          # This will cause an immediate FAIL if a matched quartet isn't found, 
-          # which gives AURA a perfect error log to work with.
+          # Forcing binaries causes the immediate fail AURA needs to "Heal"
           ./upgrade_env/bin/pip install --only-binary=:all: torch torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric
-          
           ./upgrade_env/bin/pip install -e .
           ./upgrade_env/bin/python validation_pyg.py
 
       - name: 🤖 3. Run AURA Agent
         run: |
-          python -u dependency_agent.py | tee aura_pyg_execution.log
+          # We create a specific environment for the agent that INHERITS global torch
+          python -m venv --system-site-packages aura_env
+          ./aura_env/bin/pip install google-genai google-api-core pypi-simple packaging pip-tools
+          
+          # We must ensure the agent creates ITS environments with system access too
+          # If you can't edit the agent code, this 'aura_env' execution is our best shot
+          ./aura_env/bin/python -u dependency_agent.py | tee aura_pyg_execution.log
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
@@ -74,6 +71,6 @@ jobs:
           git config --global user.email 'aura-agent@users.noreply.github.com'
           git add requirements.txt aura_pyg_execution.log
           if ! git diff --staged --quiet; then
-            git commit -m "🤖 [ASE-2026] Modernized PyG: Resolved ABI Mismatch [skip ci]"
+            git commit -m "🤖 [ASE-2026] Modernized PyG: Resolved ABI Mismatch via System Inheritance [skip ci]"
             git push
           fi
